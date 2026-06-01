@@ -31,14 +31,17 @@ async def populate_queue(workqueue: Workqueue):
         "Samliv - Kontrolgruppen",
         "Sort arbejde - Kontrolgruppen",
         "Udrejse - Kontrolgruppen",
-        "Øvrige kontrolsager - Kontrolgruppen"
+        "Øvrige kontrolsager - Kontrolgruppen",
     ]
 
     async with sbsys:
         liste_af_skabelons_id = []
         skabeloner = await sbsys.sagsskabeloner.hent_sagsskabeloner()
         for sagstitel in sagstitler:
-            skabelon = next((s for s in skabeloner if s["SagsTitel"].lower() == sagstitel.lower()), None)
+            skabelon = next(
+                (s for s in skabeloner if s["SagsTitel"].lower() == sagstitel.lower()),
+                None,
+            )
             if skabelon:
                 liste_af_skabelons_id.append(skabelon["Id"])
             else:
@@ -48,7 +51,7 @@ async def populate_queue(workqueue: Workqueue):
             {
                 "SagsStatusIds": [6],
                 "SagsSkabeloner": liste_af_skabelons_id,
-                "Limit": 3000
+                "Limit": 3000,
             }
         )
 
@@ -61,10 +64,7 @@ async def populate_queue(workqueue: Workqueue):
         sager = list(unikke_sager.values())
         for sag in sager:
             cpr = sag["PrimaryPart"]["CPRnummer"].replace("-", "")
-            workqueue.add_item(
-                data={"cpr": cpr}, reference=cpr
-            )
-    
+            workqueue.add_item(data={"cpr": cpr}, reference=cpr)
 
 
 async def process_workqueue(workqueue: Workqueue):
@@ -79,15 +79,26 @@ async def process_workqueue(workqueue: Workqueue):
             try:
                 borger = momentum.borgere.hent_borger(data["cpr"])
                 borgers_markeringer = momentum.borgere.hent_markeringer(borger)
-                igangværende_kontrolsag = next((m for m in borgers_markeringer if m["tag"]["title"].lower() == "Igangværende kontrolgruppe sag".lower() and m["end"] is None), None)
+                igangværende_kontrolsag = next(
+                    (
+                        m
+                        for m in borgers_markeringer
+                        if m["tag"]["title"].lower()
+                        == "Igangværende kontrolgruppe sag".lower()
+                        and m["end"] is None
+                    ),
+                    None,
+                )
                 if not igangværende_kontrolsag:
                     markering = momentum.borgere.opret_markering(
                         "Igangværende kontrolgruppe sag",
                         borger,
-                        start_dato = datetime.datetime.now().date(),
-                    ) 
+                        start_dato=datetime.datetime.now().date(),
+                    )
                     if not markering:
-                        raise WorkItemError("Kunne ikke oprette markering for borger i Momentum.")
+                        raise WorkItemError(
+                            "Kunne ikke oprette markering for borger i Momentum."
+                        )
                     tracker.track_task(proces_navn)
 
             except WorkItemError as e:
