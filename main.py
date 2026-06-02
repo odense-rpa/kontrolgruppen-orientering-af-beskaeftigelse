@@ -78,28 +78,30 @@ async def process_workqueue(workqueue: Workqueue):
 
             try:
                 borger = momentum.borgere.hent_borger(data["cpr"])
-                borgers_markeringer = momentum.borgere.hent_markeringer(borger)
-                igangværende_kontrolsag = next(
-                    (
-                        m
-                        for m in borgers_markeringer
-                        if m["tag"]["title"].lower()
-                        == "Igangværende kontrolgruppe sag".lower()
-                        and m["end"] is None
-                    ),
-                    None,
-                )
-                if not igangværende_kontrolsag:
-                    markering = momentum.borgere.opret_markering(
-                        "Igangværende kontrolgruppe sag",
-                        borger,
-                        start_dato=datetime.datetime.now().date(),
+                borgers_målgrupper = momentum.borgere.hent_målgrupper(borger)
+                if any(målgruppe["end"] is None for målgruppe in borgers_målgrupper):
+                    borgers_markeringer = momentum.borgere.hent_markeringer(borger)
+                    igangværende_kontrolsag = next(
+                        (
+                            m
+                            for m in borgers_markeringer
+                            if m["tag"]["title"].lower()
+                            == "Igangværende kontrolgruppe sag".lower()
+                            and m["end"] is None
+                        ),
+                        None,
                     )
-                    if not markering:
-                        raise WorkItemError(
-                            "Kunne ikke oprette markering for borger i Momentum."
+                    if not igangværende_kontrolsag:
+                        markering = momentum.borgere.opret_markering(
+                            "Igangværende kontrolgruppe sag",
+                            borger,
+                            start_dato=datetime.datetime.now().date(),
                         )
-                    tracker.track_task(proces_navn)
+                        if not markering:
+                            raise WorkItemError(
+                                "Kunne ikke oprette markering for borger i Momentum."
+                            )
+                        tracker.track_task(proces_navn)
 
             except WorkItemError as e:
                 logger.error(f"Error processing item. Error: {e}")
