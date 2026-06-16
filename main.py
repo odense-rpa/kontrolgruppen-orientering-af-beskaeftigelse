@@ -57,14 +57,17 @@ async def populate_queue(workqueue: Workqueue):
 
         unikke_sager = {}
         for sag in sager:
-            cpr = sag["PrimaryPart"]["CPRnummer"]
-            if cpr not in unikke_sager:
+            # Der er ikke altid CPR - nogle gange CVR - men for nu skipper vi dem bare
+            cpr = sag.get("PrimaryPart", {}).get("CPRnummer")
+            if cpr and cpr not in unikke_sager:
                 unikke_sager[cpr] = sag
 
         sager = list(unikke_sager.values())
         for sag in sager:
-            cpr = sag["PrimaryPart"]["CPRnummer"].replace("-", "")
-            workqueue.add_item(data={"cpr": cpr}, reference=cpr)
+            cpr = sag.get("PrimaryPart", {}).get("CPRnummer")
+            if cpr:
+                cpr = cpr.replace("-", "")
+                workqueue.add_item(data={"cpr": cpr}, reference=cpr)
 
 
 async def process_workqueue(workqueue: Workqueue):
