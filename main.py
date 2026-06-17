@@ -3,8 +3,6 @@ import datetime
 import logging
 import sys
 
-import httpx
-
 from automation_server_client import (
     AutomationServer,
     Workqueue,
@@ -83,6 +81,9 @@ async def process_workqueue(workqueue: Workqueue):
 
             try:
                 borger = momentum.borgere.hent_borger(data["cpr"])
+                if not borger:
+                    logger.warning(f"Borger med CPR {data['cpr']} ikke fundet i Momentum. Springer over.")
+                    continue
                 borgers_målgrupper = momentum.borgere.hent_målgrupper(borger)
                 if any(målgruppe["end"] is None for målgruppe in borgers_målgrupper):
                     borgers_markeringer = momentum.borgere.hent_markeringer(borger)
@@ -108,12 +109,6 @@ async def process_workqueue(workqueue: Workqueue):
                             )
                         tracker.track_task(proces_navn)
 
-            except httpx.HTTPStatusError as e:
-                if e.response.status_code == 404:
-                    logger.warning(f"Borger med CPR {data['cpr']} ikke fundet i Momentum. Springer over.")
-                else:
-                    logger.error(f"HTTP error processing item. Error: {e}")
-                    item.fail(str(e))
             except WorkItemError as e:
                 logger.error(f"Error processing item. Error: {e}")
                 item.fail(str(e))
